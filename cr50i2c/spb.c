@@ -75,7 +75,7 @@ NTSTATUS Status indicating success or failure
 			Cr50I2CPrint(
 				DEBUG_LEVEL_ERROR,
 				DBG_IOCTL,
-				"Error allocating memory for Spb write - %!STATUS!",
+				"Error allocating memory for Spb write - %!STATUS!\n",
 				status);
 			goto exit;
 		}
@@ -110,7 +110,7 @@ NTSTATUS Status indicating success or failure
 		Cr50I2CPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error writing to Spb - %!STATUS!",
+			"Error writing to Spb - %!STATUS!\n",
 			status);
 		goto exit;
 	}
@@ -212,7 +212,7 @@ NTSTATUS Status indicating success or failure
 		Cr50I2CPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error setting address pointer for Spb read - %!STATUS!",
+			"Error setting address pointer for Spb read - %!STATUS!\n",
 			status);
 		goto exit;
 	}
@@ -232,7 +232,7 @@ NTSTATUS Status indicating success or failure
 			Cr50I2CPrint(
 				DEBUG_LEVEL_ERROR,
 				DBG_IOCTL,
-				"Error allocating memory for Spb read - %!STATUS!",
+				"Error allocating memory for Spb read - %!STATUS!\n",
 				status);
 			goto exit;
 		}
@@ -267,7 +267,7 @@ NTSTATUS Status indicating success or failure
 		Cr50I2CPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error reading from Spb - %!STATUS!",
+			"Error reading from Spb - %!STATUS!\n",
 			status);
 		goto exit;
 	}
@@ -334,7 +334,7 @@ NTSTATUS Status indicating success or failure
 			Cr50I2CPrint(
 				DEBUG_LEVEL_ERROR,
 				DBG_IOCTL,
-				"Error allocating memory for Spb read - %!STATUS!",
+				"Error allocating memory for Spb read - %!STATUS!\n",
 				status);
 			goto exit;
 		}
@@ -369,7 +369,7 @@ NTSTATUS Status indicating success or failure
 		Cr50I2CPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error reading from Spb - %!STATUS!",
+			"Error reading from Spb - %!STATUS!\n",
 			status);
 		goto exit;
 	}
@@ -479,7 +479,7 @@ NTSTATUS Status indicating success or failure
 		Cr50I2CPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error creating IoTarget object - %!STATUS!",
+			"Error creating IoTarget object - %!STATUS!\n",
 			status);
 
 		WdfObjectDelete(SpbContext->SpbIoTarget);
@@ -501,7 +501,7 @@ NTSTATUS Status indicating success or failure
 		Cr50I2CPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error creating Spb resource hub path string - %!STATUS!",
+			"Error creating Spb resource hub path string - %!STATUS!\n",
 			status);
 		goto exit;
 	}
@@ -522,7 +522,7 @@ NTSTATUS Status indicating success or failure
 		Cr50I2CPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error opening Spb target for communication - %!STATUS!",
+			"Error opening Spb target for communication - %!STATUS!\n",
 			status);
 		goto exit;
 	}
@@ -544,7 +544,7 @@ NTSTATUS Status indicating success or failure
 		Cr50I2CPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error allocating default memory for Spb write - %!STATUS!",
+			"Error allocating default memory for Spb write - %!STATUS!\n",
 			status);
 		goto exit;
 	}
@@ -562,7 +562,7 @@ NTSTATUS Status indicating success or failure
 		Cr50I2CPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error allocating default memory for Spb read - %!STATUS!",
+			"Error allocating default memory for Spb read - %!STATUS!\n",
 			status);
 		goto exit;
 	}
@@ -579,7 +579,7 @@ NTSTATUS Status indicating success or failure
 		Cr50I2CPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error creating Spb Waitlock - %!STATUS!",
+			"Error creating Spb Waitlock - %!STATUS!\n",
 			status);
 		goto exit;
 	}

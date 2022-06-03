@@ -48,11 +48,9 @@ typedef struct _CR50I2C_CONTEXT
 
 	SPB_CONTEXT I2CContext;
 
-	BOOLEAN ConnectInterrupt;
-
 	WDFINTERRUPT Interrupt;
 
-	WDFWAITLOCK InterruptLock;
+	BOOLEAN InterruptServiced;
 
 	char* buf;
 

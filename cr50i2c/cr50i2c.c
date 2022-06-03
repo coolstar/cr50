@@ -46,46 +46,32 @@ __in PUNICODE_STRING RegistryPath
 }
 
 static NTSTATUS tpm_cr50_i2c_wait_tpm_ready(PCR50I2C_CONTEXT pDevice) {
-	if (!pDevice->ConnectInterrupt) {
-		Cr50I2CPrint(DEBUG_LEVEL_ERROR, DBG_IOCTL,
-			"Trying to wait for interrupt without ready\n");
-		return STATUS_INVALID_PARAMETER;
+	LARGE_INTEGER CurrentTime;
+	KeQuerySystemTimePrecise(&CurrentTime);
+
+	LARGE_INTEGER Timeout;
+	Timeout.QuadPart = CurrentTime.QuadPart + (TIS_SHORT_TIMEOUT * 1000 * 10);
+	while (!pDevice->InterruptServiced) {
+		KeQuerySystemTimePrecise(&CurrentTime);
+		if (CurrentTime.QuadPart > Timeout.QuadPart) {
+			Cr50I2CPrint(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+				"Timeout waiting for TPM Interrupt\n");
+			return STATUS_TIMEOUT;
+		}
 	}
+	KeQuerySystemTimePrecise(&CurrentTime);
 
-	//IRQ not implemented. waiting 20 ms
-	LONGLONG Timeout;
-	Timeout = -20 * 1000 * 10;
-	KeDelayExecutionThread(KernelMode, false, &Timeout);
-
-	/*LONGLONG Timeout;
-	Timeout = -TIS_SHORT_TIMEOUT * 1000 * 10;
-	NTSTATUS status = WdfWaitLockAcquire(pDevice->InterruptLock, &Timeout);
-	if (!NT_SUCCESS(status)) {
-		Cr50I2CPrint(DEBUG_LEVEL_ERROR, DBG_IOCTL,
-			"WdfWaitLockAcquire failed with status 0x%x\n", status);
-		return status;
-	}
-	DbgPrint("Got TPM Wait Lock\n");
-
-	WdfWaitLockRelease(pDevice->InterruptLock);
-	return STATUS_SUCCESS;*/
+	return STATUS_SUCCESS;
 }
 
 static NTSTATUS tpm_cr50_i2c_enable_tpm_irq(PCR50I2C_CONTEXT pDevice) {
-	/*NTSTATUS status = WdfWaitLockAcquire(pDevice->InterruptLock, 0);
-	if (!NT_SUCCESS(status)) {
-		Cr50I2CPrint(DEBUG_LEVEL_ERROR, DBG_IOCTL,
-			"WdfWaitLockAcquire failed with status 0x%x\n", status);
-		return status;
-	}*/
-
-	NTSTATUS status = STATUS_SUCCESS;
-	pDevice->ConnectInterrupt = true;
-	return status;
+	pDevice->InterruptServiced = false;
+	WdfInterruptEnable(pDevice->Interrupt);
+	return STATUS_SUCCESS;
 }
 
 static void tpm_cr50_i2c_disable_tpm_irq(PCR50I2C_CONTEXT pDevice) {
-	pDevice->ConnectInterrupt = false;
+	WdfInterruptDisable(pDevice->Interrupt);
 }
 
 static NTSTATUS tpm_cr50_i2c_read(
@@ -102,7 +88,7 @@ static NTSTATUS tpm_cr50_i2c_read(
 	status = SpbWriteDataSynchronously(&pDevice->I2CContext, &addr, sizeof(uint8_t));
 	if (!NT_SUCCESS(status)) {
 		Cr50I2CPrint(DEBUG_LEVEL_ERROR, DBG_IOCTL,
-			"SpbWriteDataSynchronously failed with status 0x%x\n", status);
+			"tpm_cr50_i2c_read: SpbWriteDataSynchronously failed with status 0x%x\n", status);
 		goto out;
 	}
 
@@ -116,7 +102,7 @@ static NTSTATUS tpm_cr50_i2c_read(
 	status = SpbReadDataSynchronously(&pDevice->I2CContext, buf, len);
 	if (!NT_SUCCESS(status)) {
 		Cr50I2CPrint(DEBUG_LEVEL_ERROR, DBG_IOCTL,
-			"SpbReadDataSynchronously failed with status 0x%x\n", status);
+			"tpm_cr50_i2c_read: SpbReadDataSynchronously failed with status 0x%x\n", status);
 		goto out;
 	}
 
@@ -148,7 +134,7 @@ static NTSTATUS tpm_cr50_i2c_write(
 	status = SpbWriteDataSynchronously(&pDevice->I2CContext, pDevice->buf, len + 1);
 	if (!NT_SUCCESS(status)) {
 		Cr50I2CPrint(DEBUG_LEVEL_ERROR, DBG_IOCTL,
-			"SpbWriteDataSynchronously failed with status 0x%x\n", status);
+			"tpm_cr50_i2c_write: SpbWriteDataSynchronously failed with status 0x%x\n", status);
 		goto out;
 	}
 
@@ -761,13 +747,7 @@ BOOLEAN OnInterruptIsr(
 	WDFDEVICE Device = WdfInterruptGetDevice(Interrupt);
 	PCR50I2C_CONTEXT pDevice = GetDeviceContext(Device);
 
-	if (!pDevice->ConnectInterrupt) {
-		DbgPrint("Got TPM Interrupt [not connected]\n");
-		return false;
-	}
-
-	//WdfWaitLockRelease(pDevice->InterruptLock);
-	DbgPrint("Got TPM Interrupt\n");
+	pDevice->InterruptServiced = true;
 
 	return true;
 }
@@ -916,19 +896,9 @@ IN PWDFDEVICE_INIT DeviceInit
 		return status;
 	}
 
-	status = WdfWaitLockCreate(WDF_NO_OBJECT_ATTRIBUTES, &devContext->InterruptLock);
-	if (!NT_SUCCESS(status))
-	{
-		Cr50I2CPrint(DEBUG_LEVEL_ERROR, DBG_PNP,
-			"Error creating WDF interrupt lock - %!STATUS!",
-			status);
-
-		return status;
-
-	}
+	WdfInterruptDisable(devContext->Interrupt);
 
 	devContext->FxDevice = device;
-	devContext->ConnectInterrupt = false;
 
 	return status;
 }
