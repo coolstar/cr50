@@ -351,6 +351,8 @@ Status
 
 	UNREFERENCED_PARAMETER(FxResourcesRaw);
 
+	ExInitializeDriverRuntime(DrvRtPoolNxOptIn);
+
 	//
 	// Parse the peripheral's resources.
 	//
@@ -444,7 +446,7 @@ Status
 		return STATUS_INVALID_CONNECTION;
 	}
 
-	pDevice->buf = ExAllocatePoolWithTag(NonPagedPool, TPM_CR50_MAX_BUFSIZE, CR50_POOL_TAG);
+	pDevice->buf = ExAllocatePoolZero(NonPagedPool, TPM_CR50_MAX_BUFSIZE, CR50_POOL_TAG);
 	if (!pDevice->buf) {
 		return STATUS_MEMORY_NOT_ALLOCATED;
 	}
@@ -808,7 +810,7 @@ PIRP Irp
 			// HIDClass is asking for child deviceid & hardwareids.
 			// Let us just make up some id for our child device.
 			//
-			buffer = (PWCHAR)ExAllocatePoolWithTag(
+			buffer = (PWCHAR)ExAllocatePoolZero(
 				NonPagedPool,
 				CR50_HARDWARE_IDS_LENGTH,
 				CR50_POOL_TAG

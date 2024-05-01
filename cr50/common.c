@@ -60,6 +60,7 @@ NTSTATUS tpm_cr50_request_locality(PCR50_CONTEXT pDevice) {
 		return tpm_cr50_spi_request_locality(pDevice);
 	}
 	ASSERTMSG("Invalid Transport", FALSE);
+	return STATUS_UNSUCCESSFUL;
 }
 
 NTSTATUS tpm_cr50_tis_status(PCR50_CONTEXT pDevice, UINT8* buf, size_t sz) {
@@ -70,6 +71,7 @@ NTSTATUS tpm_cr50_tis_status(PCR50_CONTEXT pDevice, UINT8* buf, size_t sz) {
 		return tpm_cr50_spi_tis_status(pDevice, buf, sz);
 	}
 	ASSERTMSG("Invalid Transport", FALSE);
+	return STATUS_UNSUCCESSFUL;
 }
 
 NTSTATUS tpm_cr50_tis_status_write(PCR50_CONTEXT pDevice, UINT8* buf, size_t sz) {
@@ -80,6 +82,7 @@ NTSTATUS tpm_cr50_tis_status_write(PCR50_CONTEXT pDevice, UINT8* buf, size_t sz)
 		return tpm_cr50_spi_tis_status_write(pDevice, buf, sz);
 	}
 	ASSERTMSG("Invalid Transport", FALSE);
+	return STATUS_UNSUCCESSFUL;
 }
 
 void tpm_cr50_tis_set_ready(PCR50_CONTEXT pDevice) {
@@ -102,6 +105,7 @@ NTSTATUS tpm_cr50_tis_read_data_fifo(PCR50_CONTEXT pDevice, UINT8* buf, size_t b
 		return tpm2_read_reg_spi(pDevice, TPM_DATA_FIFO(0), buf, burstcnt);
 	}
 	ASSERTMSG("Invalid Transport", FALSE);
+	return STATUS_UNSUCCESSFUL;
 }
 
 NTSTATUS tpm_cr50_tis_write_data_fifo(PCR50_CONTEXT pDevice, UINT8* buf, size_t burstcnt) {
@@ -112,6 +116,7 @@ NTSTATUS tpm_cr50_tis_write_data_fifo(PCR50_CONTEXT pDevice, UINT8* buf, size_t 
 		return tpm2_write_reg_spi(pDevice, TPM_DATA_FIFO(0), buf, burstcnt);
 	}
 	ASSERTMSG("Invalid Transport", FALSE);
+	return STATUS_UNSUCCESSFUL;
 }
 
 NTSTATUS tpm_cr50_read_vendor(PCR50_CONTEXT pDevice, UINT8* buf, size_t sz) {
@@ -122,4 +127,5 @@ NTSTATUS tpm_cr50_read_vendor(PCR50_CONTEXT pDevice, UINT8* buf, size_t sz) {
 		return tpm2_read_reg_spi(pDevice, TPM_DID_VID(0), buf, sz);
 	}
 	ASSERTMSG("Invalid Transport", FALSE);
+	return STATUS_UNSUCCESSFUL;
 }

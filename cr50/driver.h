@@ -1,5 +1,6 @@
 #if !defined(_CR50_H_)
 #define _CR50_H_
+#define POOL_ZERO_DOWN_LEVEL_SUPPORT
 
 #pragma warning(disable:4200)  // suppress nameless struct/union warning
 #pragma warning(disable:4201)  // suppress nameless struct/union warning
