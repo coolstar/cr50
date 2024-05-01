@@ -20,7 +20,7 @@ static NTSTATUS tpm_cr50_i2c_wait_tpm_ready(PCR50_CONTEXT pDevice) {
 }
 
 static NTSTATUS tpm_cr50_i2c_enable_tpm_irq(PCR50_CONTEXT pDevice) {
-	pDevice->InterruptServiced = false;
+	pDevice->InterruptServiced = FALSE;
 	WdfInterruptEnable(pDevice->Interrupt);
 	return STATUS_SUCCESS;
 }
@@ -31,8 +31,8 @@ static void tpm_cr50_i2c_disable_tpm_irq(PCR50_CONTEXT pDevice) {
 
 static NTSTATUS tpm_cr50_i2c_read(
 	_In_ PCR50_CONTEXT pDevice,
-	uint8_t addr,
-	uint8_t* buf,
+	UINT8 addr,
+	UINT8* buf,
 	size_t len
 ) {
 	NTSTATUS status = tpm_cr50_i2c_enable_tpm_irq(pDevice);
@@ -40,7 +40,7 @@ static NTSTATUS tpm_cr50_i2c_read(
 		return status;
 	}
 
-	status = SpbWriteDataSynchronously(&pDevice->I2CContext, &addr, sizeof(uint8_t));
+	status = SpbWriteDataSynchronously(&pDevice->I2CContext, &addr, sizeof(UINT8));
 	if (!NT_SUCCESS(status)) {
 		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
 			"tpm_cr50_i2c_read: SpbWriteDataSynchronously failed with status 0x%x\n", status);
@@ -68,8 +68,8 @@ out:
 
 static NTSTATUS tpm_cr50_i2c_write(
 	_In_ PCR50_CONTEXT pDevice,
-	uint8_t addr,
-	uint8_t* buf,
+	UINT8 addr,
+	UINT8* buf,
 	size_t len
 ) {
 	if (len > TPM_CR50_MAX_BUFSIZE - 1) {
@@ -106,8 +106,8 @@ out:
 }
 
 static NTSTATUS tpm_cr50_check_locality(PCR50_CONTEXT pDevice) {
-	uint8_t mask = TPM_ACCESS_VALID | TPM_ACCESS_ACTIVE_LOCALITY;
-	uint8_t buf;
+	UINT8 mask = TPM_ACCESS_VALID | TPM_ACCESS_ACTIVE_LOCALITY;
+	UINT8 buf;
 
 	NTSTATUS status = tpm_cr50_i2c_read(pDevice, TPM_I2C_ACCESS(0), &buf, sizeof(buf));
 	if (!NT_SUCCESS(status)) {
@@ -122,10 +122,10 @@ static NTSTATUS tpm_cr50_check_locality(PCR50_CONTEXT pDevice) {
 	return STATUS_INVALID_DEVICE_STATE;
 }
 
-static void tpm_cr50_release_locality(PCR50_CONTEXT pDevice, bool force) {
-	uint8_t mask = TPM_ACCESS_VALID | TPM_ACCESS_REQUEST_PENDING;
-	uint8_t addr = TPM_I2C_ACCESS(0);
-	uint8_t buf;
+static void tpm_cr50_release_locality(PCR50_CONTEXT pDevice, BOOLEAN force) {
+	UINT8 mask = TPM_ACCESS_VALID | TPM_ACCESS_REQUEST_PENDING;
+	UINT8 addr = TPM_I2C_ACCESS(0);
+	UINT8 buf;
 
 	NTSTATUS status = tpm_cr50_i2c_read(pDevice, addr, &buf, sizeof(buf));
 	if (!NT_SUCCESS(status)) {
@@ -139,7 +139,7 @@ static void tpm_cr50_release_locality(PCR50_CONTEXT pDevice, bool force) {
 }
 
 static NTSTATUS tpm_cr50_request_locality(PCR50_CONTEXT pDevice) {
-	uint8_t buf = TPM_ACCESS_REQUEST_USE;
+	UINT8 buf = TPM_ACCESS_REQUEST_USE;
 
 	NTSTATUS status = tpm_cr50_check_locality(pDevice);
 	if (NT_SUCCESS(status)) {
@@ -160,15 +160,15 @@ static NTSTATUS tpm_cr50_request_locality(PCR50_CONTEXT pDevice) {
 			return status;
 		}
 
-		KeDelayExecutionThread(KernelMode, false, &WaitInterval);
+		KeDelayExecutionThread(KernelMode, FALSE, &WaitInterval);
 	}
 	Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
 		"Setting locality timed out 0x%x\n", status);
 	return STATUS_TIMEOUT;
 }
 
-static uint8_t tpm_cr50_i2c_tis_status(PCR50_CONTEXT pDevice) {
-	uint8_t buf[4];
+static UINT8 tpm_cr50_i2c_tis_status(PCR50_CONTEXT pDevice) {
+	UINT8 buf[4];
 
 	if (!NT_SUCCESS(tpm_cr50_i2c_read(pDevice, TPM_I2C_STS(0), buf, sizeof(buf))))
 		return 0;
@@ -178,25 +178,25 @@ static uint8_t tpm_cr50_i2c_tis_status(PCR50_CONTEXT pDevice) {
 
 static void tpm_cr50_i2c_tis_set_ready(PCR50_CONTEXT pDevice)
 {
-	uint8_t buf[4] = { TPM_STS_COMMAND_READY };
+	UINT8 buf[4] = { TPM_STS_COMMAND_READY };
 
 	tpm_cr50_i2c_write(pDevice, TPM_I2C_STS(0), buf, sizeof(buf));
 
 	LARGE_INTEGER WaitInterval;
 	WaitInterval.QuadPart = -10 * 1000 * TPM_CR50_TIMEOUT_SHORT_MS;
 
-	KeDelayExecutionThread(KernelMode, false, &WaitInterval);
+	KeDelayExecutionThread(KernelMode, FALSE, &WaitInterval);
 }
 
 
-static NTSTATUS tpm_cr50_i2c_get_burst_and_status(PCR50_CONTEXT pDevice, uint8_t mask,
-	size_t* burst, uint32_t* status) {
+static NTSTATUS tpm_cr50_i2c_get_burst_and_status(PCR50_CONTEXT pDevice, UINT8 mask,
+	size_t* burst, UINT32* status) {
 	LARGE_INTEGER StopTime;
 
 	LARGE_INTEGER CurrentTime;
 	KeQuerySystemTimePrecise(&CurrentTime);
 
-	uint8_t buf[4];
+	UINT8 buf[4];
 	*status = 0;
 
 	StopTime.QuadPart = CurrentTime.QuadPart + (10 * 1000 * TIS_LONG_TIMEOUT);
@@ -206,14 +206,14 @@ static NTSTATUS tpm_cr50_i2c_get_burst_and_status(PCR50_CONTEXT pDevice, uint8_t
 		WaitInterval.QuadPart = -10 * 1000 * TPM_CR50_TIMEOUT_SHORT_MS;
 
 		if (!NT_SUCCESS(ret)) {
-			KeDelayExecutionThread(KernelMode, false, &WaitInterval);
+			KeDelayExecutionThread(KernelMode, FALSE, &WaitInterval);
 
 			KeQuerySystemTimePrecise(&CurrentTime);
 			continue;
 		}
 
 		*status = *buf;
-		*burst = *((uint16_t*)(buf + 1));
+		*burst = *((UINT16*)(buf + 1));
 
 		if ((*status & mask) == mask && *burst > 0 && *burst <= TPM_CR50_MAX_BUFSIZE - 1)
 			return STATUS_SUCCESS;
@@ -221,7 +221,7 @@ static NTSTATUS tpm_cr50_i2c_get_burst_and_status(PCR50_CONTEXT pDevice, uint8_t
 		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
 			"burst/mask, status: 0x%x, mask: 0x%x, burst: %lld\n", *status & mask, mask, *burst);
 
-		KeDelayExecutionThread(KernelMode, false, &WaitInterval);
+		KeDelayExecutionThread(KernelMode, FALSE, &WaitInterval);
 		KeQuerySystemTimePrecise(&CurrentTime);
 	}
 
@@ -230,11 +230,11 @@ static NTSTATUS tpm_cr50_i2c_get_burst_and_status(PCR50_CONTEXT pDevice, uint8_t
 	return STATUS_TIMEOUT;
 }
 
-static NTSTATUS tpm_cr50_i2c_tis_recv(PCR50_CONTEXT pDevice, uint8_t* buf, size_t buf_len) {
-	uint8_t mask = TPM_STS_VALID | TPM_STS_DATA_AVAIL;
+static NTSTATUS tpm_cr50_i2c_tis_recv(PCR50_CONTEXT pDevice, UINT8* buf, size_t buf_len) {
+	UINT8 mask = TPM_STS_VALID | TPM_STS_DATA_AVAIL;
 	size_t burstcnt, cur, len, expected;
-	uint8_t addr = TPM_I2C_DATA_FIFO(0);
-	uint32_t status;
+	UINT8 addr = TPM_I2C_DATA_FIFO(0);
+	UINT32 status;
 	NTSTATUS ret;
 
 	if (buf_len < TPM_HEADER_SIZE) {
@@ -262,7 +262,7 @@ static NTSTATUS tpm_cr50_i2c_tis_recv(PCR50_CONTEXT pDevice, uint8_t* buf, size_
 		goto out_err;
 	}
 
-	expected = RtlUlongByteSwap(*((uint32_t*)(buf + 2)));
+	expected = RtlUlongByteSwap(*((UINT32*)(buf + 2)));
 	if (expected > buf_len) {
 		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
 			"Buffer too small to receive i2c data\n");
@@ -302,21 +302,21 @@ static NTSTATUS tpm_cr50_i2c_tis_recv(PCR50_CONTEXT pDevice, uint8_t* buf, size_
 		goto out_err;
 	}
 
-	tpm_cr50_release_locality(pDevice, false);
+	tpm_cr50_release_locality(pDevice, FALSE);
 	return ret;
 
 out_err:
 	if (tpm_cr50_i2c_tis_status(pDevice) & TPM_STS_COMMAND_READY)
 		tpm_cr50_i2c_tis_set_ready(pDevice);
 
-	tpm_cr50_release_locality(pDevice, false);
+	tpm_cr50_release_locality(pDevice, FALSE);
 	return ret;
 }
 
-static NTSTATUS tpm_cr50_i2c_tis_send(PCR50_CONTEXT pDevice, uint8_t* buf, size_t len) {
+static NTSTATUS tpm_cr50_i2c_tis_send(PCR50_CONTEXT pDevice, UINT8* buf, size_t len) {
 	size_t burstcnt, limit, sent = 0;
-	uint8_t tpm_go[4] = { TPM_STS_GO };
-	uint32_t status;
+	UINT8 tpm_go[4] = { TPM_STS_GO };
+	UINT32 status;
 	NTSTATUS ret;
 
 	ret = tpm_cr50_request_locality(pDevice);
@@ -341,7 +341,7 @@ static NTSTATUS tpm_cr50_i2c_tis_send(PCR50_CONTEXT pDevice, uint8_t* buf, size_
 	}
 
 	while (len > 0) {
-		uint8_t mask = TPM_STS_VALID;
+		UINT8 mask = TPM_STS_VALID;
 
 		/* Wait for data if this is not the first chunk */
 		if (sent > 0)
@@ -394,7 +394,7 @@ out_err:
 	if (tpm_cr50_i2c_tis_status(pDevice) & TPM_STS_COMMAND_READY)
 		tpm_cr50_i2c_tis_set_ready(pDevice);
 
-	tpm_cr50_release_locality(pDevice, false);
+	tpm_cr50_release_locality(pDevice, FALSE);
 	return ret;
 }
 
@@ -406,7 +406,7 @@ out_err:
  * Return:
  *	True if command is ready, False otherwise.
  */
-static bool tpm_cr50_i2c_req_canceled(PCR50_CONTEXT pDevice, uint8_t status)
+static BOOLEAN tpm_cr50_i2c_req_canceled(PCR50_CONTEXT pDevice, UINT8 status)
 {
 	UNREFERENCED_PARAMETER(pDevice);
 	return status == TPM_STS_COMMAND_READY;

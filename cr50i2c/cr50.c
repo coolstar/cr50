@@ -47,8 +47,8 @@ NTSTATUS InitializeCR50(
 	)
 {
 	NTSTATUS status = 0;
-	uint32_t vendor;
-	uint8_t buf[4];
+	UINT32 vendor;
+	UINT8 buf[4];
 
 	status = tpm_cr50_request_locality(pDevice);
 	if (!NT_SUCCESS(status)) {
@@ -62,15 +62,15 @@ NTSTATUS InitializeCR50(
 	if (!NT_SUCCESS(status)) {
 		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
 			"Could not read vendor id\n");
-		tpm_cr50_release_locality(pDevice, true);
+		tpm_cr50_release_locality(pDevice, TRUE);
 		return status;
 	}
 
-	vendor = *((uint32_t*)buf);
+	vendor = *((UINT32*)buf);
 	if (vendor != TPM_CR50_DID_VID && vendor != TPM_TI50_DID_VID) {
 		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
 			"Vendor ID did not match! ID was %08x\n", vendor);
-		tpm_cr50_release_locality(pDevice, true);
+		tpm_cr50_release_locality(pDevice, TRUE);
 		return STATUS_DEVICE_FEATURE_NOT_SUPPORTED;
 	}
 
@@ -85,7 +85,7 @@ NTSTATUS ReleaseCR50(
 	_In_  PCR50_CONTEXT  pDevice
 	)
 {
-	tpm_cr50_release_locality(pDevice, true);
+	tpm_cr50_release_locality(pDevice, TRUE);
 	return STATUS_SUCCESS;
 }
 
@@ -286,7 +286,7 @@ Status
 
 	NTSTATUS status = STATUS_SUCCESS;
 
-	uint8_t shutdown_cmd[] = {
+	UINT8 shutdown_cmd[] = {
 		0x80, 0x01,		/* TPM_ST_COMMAND_TAG (0x8001) */
 		0, 0, 0, 12,	/* Length in bytes */
 		0, 0, 0x01, 0x45,	/* TPM_CC_Shutdown (0x145) */
@@ -299,7 +299,7 @@ Status
 		return status;
 	}
 
-	uint8_t shutdown_response[TPM_HEADER_SIZE];
+	UINT8 shutdown_response[TPM_HEADER_SIZE];
 	status = tpm_cr50_i2c_tis_recv(pDevice, shutdown_response, TPM_HEADER_SIZE);
 	if (!NT_SUCCESS(status)) {
 		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
@@ -307,7 +307,7 @@ Status
 		return status;
 	}
 
-	uint8_t expected_response[] = {
+	UINT8 expected_response[] = {
 		0x80, 0x01,		/* TPM_ST_COMMAND_TAG (0x8001) */
 		0, 0, 0, 10,
 		0, 0, 0, 0
@@ -332,9 +332,9 @@ BOOLEAN OnInterruptIsr(
 	WDFDEVICE Device = WdfInterruptGetDevice(Interrupt);
 	PCR50_CONTEXT pDevice = GetDeviceContext(Device);
 
-	pDevice->InterruptServiced = true;
+	pDevice->InterruptServiced = TRUE;
 
-	return true;
+	return TRUE;
 }
 
 NTSTATUS
