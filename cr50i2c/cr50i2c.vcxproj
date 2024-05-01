@@ -148,6 +148,7 @@
     <ClInclude Include="trace.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="common.c" />
     <ClCompile Include="cr50.c" />
     <ClCompile Include="i2c.c" />
     <ClCompile Include="spb.c" />

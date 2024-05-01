@@ -42,6 +42,236 @@ __in PUNICODE_STRING RegistryPath
 	return status;
 }
 
+UINT8 tpm_cr50_tis_status_inline(PCR50_CONTEXT pDevice) {
+	UINT8 buf[4];
+	if (!NT_SUCCESS(tpm_cr50_tis_status(pDevice, buf, sizeof(buf)))) {
+		return 0;
+	}
+	return buf[0];
+}
+
+static NTSTATUS tpm_cr50_get_burst_and_status(PCR50_CONTEXT pDevice, UINT8 mask,
+	size_t* burst, UINT32* status) {
+	LARGE_INTEGER StopTime;
+
+	LARGE_INTEGER CurrentTime;
+	KeQuerySystemTimePrecise(&CurrentTime);
+
+	UINT8 buf[4];
+	*status = 0;
+
+	StopTime.QuadPart = CurrentTime.QuadPart + (10 * 1000 * TIS_LONG_TIMEOUT);
+	while (CurrentTime.QuadPart < StopTime.QuadPart) {
+		NTSTATUS ret = tpm_cr50_tis_status(pDevice, buf, sizeof(buf));
+		LARGE_INTEGER WaitInterval;
+		WaitInterval.QuadPart = -10 * 1000 * TPM_CR50_TIMEOUT_SHORT_MS;
+
+		if (!NT_SUCCESS(ret)) {
+			KeDelayExecutionThread(KernelMode, FALSE, &WaitInterval);
+
+			KeQuerySystemTimePrecise(&CurrentTime);
+			continue;
+		}
+
+		*status = *buf;
+		*burst = *((UINT16*)(buf + 1));
+
+		if ((*status & mask) == mask && *burst > 0 && *burst <= TPM_CR50_MAX_BUFSIZE - 1)
+			return STATUS_SUCCESS;
+
+		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+			"burst/mask, status: 0x%x, mask: 0x%x, burst: %lld\n", *status & mask, mask, *burst);
+
+		KeDelayExecutionThread(KernelMode, FALSE, &WaitInterval);
+		KeQuerySystemTimePrecise(&CurrentTime);
+	}
+
+	Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+		"Timeout reading burst and status\n", );
+	return STATUS_TIMEOUT;
+}
+
+static NTSTATUS tpm_cr50_tis_recv(PCR50_CONTEXT pDevice, UINT8* buf, size_t buf_len) {
+	UINT8 mask = TPM_STS_VALID | TPM_STS_DATA_AVAIL;
+	size_t burstcnt, cur, len, expected;
+	UINT32 status;
+	NTSTATUS ret;
+
+	if (buf_len < TPM_HEADER_SIZE) {
+		return STATUS_INVALID_BUFFER_SIZE;
+	}
+
+	ret = tpm_cr50_get_burst_and_status(pDevice, mask, &burstcnt, &status);
+	if (!NT_SUCCESS(ret)) {
+		goto out_err;
+	}
+
+	if (burstcnt > buf_len || burstcnt < TPM_HEADER_SIZE) {
+		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+			"Unexpected burstcnt: %zu (max=%zu, min=%d)\n",
+			burstcnt, buf_len, TPM_HEADER_SIZE);
+		ret = STATUS_IO_DEVICE_ERROR;
+		goto out_err;
+	}
+
+	/* Read first chunk of burstcnt bytes */
+	ret = tpm_cr50_tis_read_data_fifo(pDevice, buf, burstcnt);
+	if (!NT_SUCCESS(ret)) {
+		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+			"Read of first chunk failed\n");
+		goto out_err;
+	}
+
+	expected = RtlUlongByteSwap(*((UINT32*)(buf + 2)));
+	if (expected > buf_len) {
+		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+			"Buffer too small to receive i2c data\n");
+		ret = STATUS_BUFFER_TOO_SMALL;
+		goto out_err;
+	}
+
+	/* Now read the rest of the data */
+	cur = burstcnt;
+	while (cur < expected) {
+		ret = tpm_cr50_get_burst_and_status(pDevice, mask, &burstcnt, &status);
+		if (!NT_SUCCESS(ret)) {
+			goto out_err;
+		}
+
+		len = min((size_t)(burstcnt), (size_t)(expected - cur));
+		ret = tpm_cr50_tis_read_data_fifo(pDevice, buf + cur, len);
+		if (!NT_SUCCESS(ret)) {
+			Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+				"Read failed\n");
+			goto out_err;
+		}
+
+		cur += len;
+	}
+
+	/* Ensure TPM is done reading data */
+	ret = tpm_cr50_get_burst_and_status(pDevice, TPM_STS_VALID, &burstcnt, &status);
+	if (!NT_SUCCESS(ret)) {
+		goto out_err;
+	}
+
+	if (status & TPM_STS_DATA_AVAIL) {
+		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+			"Data still available\n");
+		ret = IO_ERROR_IO_HARDWARE_ERROR;
+		goto out_err;
+	}
+
+	tpm_cr50_release_locality(pDevice, FALSE);
+	return ret;
+
+out_err:
+	if (tpm_cr50_tis_status_inline(pDevice) & TPM_STS_COMMAND_READY)
+		tpm_cr50_tis_set_ready(pDevice);
+
+	tpm_cr50_release_locality(pDevice, FALSE);
+	return ret;
+}
+
+static NTSTATUS tpm_cr50_tis_send(PCR50_CONTEXT pDevice, UINT8* buf, size_t len) {
+	size_t burstcnt, limit, sent = 0;
+	UINT8 tpm_go[4] = { TPM_STS_GO };
+	UINT32 status;
+	NTSTATUS ret;
+
+	ret = tpm_cr50_request_locality(pDevice);
+	if (!NT_SUCCESS(ret))
+		return ret;
+
+	/* Wait until TPM is ready for a command */
+	LARGE_INTEGER StopTime;
+
+	LARGE_INTEGER CurrentTime;
+	KeQuerySystemTimePrecise(&CurrentTime);
+	StopTime.QuadPart = CurrentTime.QuadPart + (10 * 1000 * TIS_LONG_TIMEOUT);
+
+	while (!(tpm_cr50_tis_status_inline(pDevice) & TPM_STS_COMMAND_READY)) {
+		KeQuerySystemTimePrecise(&CurrentTime);
+		if (CurrentTime.QuadPart > StopTime.QuadPart) {
+			ret = STATUS_TIMEOUT;
+			goto out_err;
+		}
+
+		tpm_cr50_tis_set_ready(pDevice);
+	}
+
+	while (len > 0) {
+		UINT8 mask = TPM_STS_VALID;
+
+		/* Wait for data if this is not the first chunk */
+		if (sent > 0)
+			mask |= TPM_STS_DATA_EXPECT;
+
+		/* Read burst count and check status */
+		ret = tpm_cr50_get_burst_and_status(pDevice, mask, &burstcnt, &status);
+		if (!NT_SUCCESS(ret))
+			goto out_err;
+
+		/*
+		 * Use burstcnt - 1 to account for the address byte
+		 * that is inserted by tpm_cr50_i2c_write()
+		 */
+		limit = min((size_t)(burstcnt - 1), (size_t)(len));
+		ret = tpm_cr50_tis_write_data_fifo(pDevice, &buf[sent], limit);
+		if (!NT_SUCCESS(ret)) {
+			Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+				"Write failed\n");
+			goto out_err;
+		}
+
+		sent += limit;
+		len -= limit;
+	}
+
+	/* Ensure TPM is not expecting more data */
+	ret = tpm_cr50_get_burst_and_status(pDevice, TPM_STS_VALID, &burstcnt, &status);
+	if (!NT_SUCCESS(ret))
+		goto out_err;
+	if (status & TPM_STS_DATA_EXPECT) {
+		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+			"Data still expected\n");
+		ret = IO_ERROR_IO_HARDWARE_ERROR;
+		goto out_err;
+	}
+
+	/* Start the TPM command */
+	ret = tpm_cr50_tis_status_write(pDevice, tpm_go,
+		sizeof(tpm_go));
+	if (!NT_SUCCESS(ret)) {
+		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+			"Start command failed\n");
+		goto out_err;
+	}
+	return STATUS_SUCCESS;
+
+out_err:
+	/* Abort current transaction if still pending */
+	if (tpm_cr50_tis_status_inline(pDevice) & TPM_STS_COMMAND_READY)
+		tpm_cr50_tis_set_ready(pDevice);
+
+	tpm_cr50_release_locality(pDevice, FALSE);
+	return ret;
+}
+
+/**
+ * tpm_cr50_req_canceled() - Callback to notify a request cancel.
+ * @chip:	A TPM chip.
+ * @status:	Status given by the cancel callback.
+ *
+ * Return:
+ *	True if command is ready, False otherwise.
+ */
+static BOOLEAN tpm_cr50_req_canceled(PCR50_CONTEXT pDevice, UINT8 status)
+{
+	UNREFERENCED_PARAMETER(pDevice);
+	return status == TPM_STS_COMMAND_READY;
+}
+
 NTSTATUS InitializeCR50(
 	_In_  PCR50_CONTEXT  pDevice
 	)
@@ -58,7 +288,7 @@ NTSTATUS InitializeCR50(
 	}
 
 	/* Read four bytes from DID_VID register */
-	status = tpm_cr50_i2c_read(pDevice, TPM_I2C_DID_VID(0), buf, sizeof(buf));
+	status = tpm_cr50_read_vendor(pDevice, buf, sizeof(buf));
 	if (!NT_SUCCESS(status)) {
 		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
 			"Could not read vendor id\n");
@@ -153,6 +383,25 @@ Status
 					pDevice->I2CContext.SpbResHubId.LowPart = pDescriptor->u.Connection.IdLowPart;
 					pDevice->I2CContext.SpbResHubId.HighPart = pDescriptor->u.Connection.IdHighPart;
 					fSpbResourceFound = TRUE;
+
+					pDevice->Transport = CR50_TRANSPORT_I2C;
+				}
+				else
+				{
+				}
+			}
+
+			if (Class == CM_RESOURCE_CONNECTION_CLASS_SERIAL &&
+				Type == CM_RESOURCE_CONNECTION_TYPE_SERIAL_SPI)
+			{
+				if (fSpbResourceFound == FALSE)
+				{
+					status = STATUS_SUCCESS;
+					pDevice->SPIContext.SpbResHubId.LowPart = pDescriptor->u.Connection.IdLowPart;
+					pDevice->SPIContext.SpbResHubId.HighPart = pDescriptor->u.Connection.IdHighPart;
+					fSpbResourceFound = TRUE;
+
+					pDevice->Transport = CR50_TRANSPORT_SPI;
 				}
 				else
 				{
@@ -177,10 +426,22 @@ Status
 		return status;
 	}
 
-	status = SpbTargetInitialize(FxDevice, &pDevice->I2CContext);
-	if (!NT_SUCCESS(status))
-	{
-		return status;
+	if (pDevice->Transport == CR50_TRANSPORT_I2C) {
+		status = SpbTargetInitialize(FxDevice, &pDevice->I2CContext);
+		if (!NT_SUCCESS(status))
+		{
+			return status;
+		}
+	}
+	else if (pDevice->Transport == CR50_TRANSPORT_SPI) {
+		status = SpbTargetInitialize(FxDevice, &pDevice->SPIContext);
+		if (!NT_SUCCESS(status))
+		{
+			return status;
+		}
+	}
+	else {
+		return STATUS_INVALID_CONNECTION;
 	}
 
 	pDevice->buf = ExAllocatePoolWithTag(NonPagedPool, TPM_CR50_MAX_BUFSIZE, CR50_POOL_TAG);
@@ -221,7 +482,12 @@ Status
 		ExFreePoolWithTag(pDevice->buf, CR50_POOL_TAG);
 	}
 
-	SpbTargetDeinitialize(FxDevice, &pDevice->I2CContext);
+	if (pDevice->Transport == CR50_TRANSPORT_I2C) {
+		SpbTargetDeinitialize(FxDevice, &pDevice->I2CContext);
+	}
+	else if (pDevice->Transport == CR50_TRANSPORT_SPI) {
+		SpbTargetDeinitialize(FxDevice, &pDevice->SPIContext);
+	}
 
 	return status;
 }
@@ -292,7 +558,7 @@ Status
 		0, 0, 0x01, 0x45,	/* TPM_CC_Shutdown (0x145) */
 		0x00, 0x01
 	};
-	status = tpm_cr50_i2c_tis_send(pDevice, shutdown_cmd, sizeof(shutdown_cmd));
+	status = tpm_cr50_tis_send(pDevice, shutdown_cmd, sizeof(shutdown_cmd));
 	if (!NT_SUCCESS(status)) {
 		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
 			"Failed to send TPM shutdown command\n");
@@ -300,7 +566,7 @@ Status
 	}
 
 	UINT8 shutdown_response[TPM_HEADER_SIZE];
-	status = tpm_cr50_i2c_tis_recv(pDevice, shutdown_response, TPM_HEADER_SIZE);
+	status = tpm_cr50_tis_recv(pDevice, shutdown_response, TPM_HEADER_SIZE);
 	if (!NT_SUCCESS(status)) {
 		Cr50Print(DEBUG_LEVEL_ERROR, DBG_IOCTL,
 			"Failed to receive TPM shutdown response\n");

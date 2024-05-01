@@ -32,6 +32,11 @@
 #define NTDEVICE_NAME_STRING       L"\\Device\\GOOG0005"
 #define SYMBOLIC_NAME_STRING       L"\\DosDevices\\GOOG0005"
 
+typedef enum {
+	CR50_TRANSPORT_I2C,
+	CR50_TRANSPORT_SPI
+} CR50_TRANSPORT;
+
 typedef struct _CR50_CONTEXT
 {
 
@@ -42,6 +47,8 @@ typedef struct _CR50_CONTEXT
 	WDFDEVICE FxDevice;
 
 	WDFQUEUE ReportQueue;
+
+	CR50_TRANSPORT Transport;
 
 	SPB_CONTEXT I2CContext;
 	SPB_CONTEXT SPIContext;
@@ -69,6 +76,17 @@ EVT_WDF_DRIVER_DEVICE_ADD Cr50EvtDeviceAdd;
 EVT_WDFDEVICE_WDM_IRP_PREPROCESS Cr50EvtWdmPreprocessMnQueryId;
 
 EVT_WDF_IO_QUEUE_IO_INTERNAL_DEVICE_CONTROL Cr50EvtInternalDeviceControl;
+
+void tpm_cr50_release_locality(PCR50_CONTEXT pDevice, BOOLEAN force);
+NTSTATUS tpm_cr50_request_locality(PCR50_CONTEXT pDevice);
+NTSTATUS tpm_cr50_tis_status(PCR50_CONTEXT pDevice, UINT8* buf, size_t sz);
+NTSTATUS tpm_cr50_tis_status_write(PCR50_CONTEXT pDevice, UINT8* buf, size_t sz);
+void tpm_cr50_tis_set_ready(PCR50_CONTEXT pDevice);
+
+NTSTATUS tpm_cr50_tis_read_data_fifo(PCR50_CONTEXT pDevice, UINT8* buf, size_t burstcnt);
+NTSTATUS tpm_cr50_tis_write_data_fifo(PCR50_CONTEXT pDevice, UINT8* buf, size_t burstcnt);
+
+NTSTATUS tpm_cr50_read_vendor(PCR50_CONTEXT pDevice, UINT8* buf, size_t sz);
 
 //
 // Helper macros
