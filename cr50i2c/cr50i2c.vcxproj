@@ -151,6 +151,7 @@
     <ClCompile Include="cr50.c" />
     <ClCompile Include="i2c.c" />
     <ClCompile Include="spb.c" />
+    <ClCompile Include="spi.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -44,6 +44,7 @@ typedef struct _CR50_CONTEXT
 	WDFQUEUE ReportQueue;
 
 	SPB_CONTEXT I2CContext;
+	SPB_CONTEXT SPIContext;
 
 	WDFINTERRUPT Interrupt;
 
