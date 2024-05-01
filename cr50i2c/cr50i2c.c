@@ -482,7 +482,7 @@ NTSTATUS InitializeCR50(
 	}
 
 	vendor = *((uint32_t*)buf);
-	if (vendor != TPM_CR50_I2C_DID_VID && vendor != TPM_TI50_I2C_DID_VID) {
+	if (vendor != TPM_CR50_DID_VID && vendor != TPM_TI50_DID_VID) {
 		Cr50I2CPrint(DEBUG_LEVEL_ERROR, DBG_IOCTL,
 			"Vendor ID did not match! ID was %08x\n", vendor);
 		tpm_cr50_release_locality(pDevice, true);
@@ -490,7 +490,7 @@ NTSTATUS InitializeCR50(
 	}
 
 	DbgPrint("%s TPM 2.0 (id 0x%x)\n",
-		vendor == TPM_TI50_I2C_DID_VID ? "ti50" : "cr50",
+		vendor == TPM_TI50_DID_VID ? "ti50" : "cr50",
 		vendor >> 16);
 
 	return status;
