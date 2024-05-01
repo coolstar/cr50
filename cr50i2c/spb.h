@@ -27,17 +27,27 @@ Revision History:
 #define RESHUB_USE_HELPER_ROUTINES
 
 //
-// SPB (I2C) context
+// SPB (I2C / SPI) context
 //
 
 typedef struct _SPB_CONTEXT
 {
 	WDFIOTARGET SpbIoTarget;
-	LARGE_INTEGER I2cResHubId;
+	LARGE_INTEGER SpbResHubId;
 	WDFMEMORY WriteMemory;
 	WDFMEMORY ReadMemory;
 	WDFWAITLOCK SpbLock;
 } SPB_CONTEXT;
+
+NTSTATUS
+SpbLockController(
+	IN SPB_CONTEXT* SpbContext
+);
+
+NTSTATUS
+SpbUnlockController(
+	IN SPB_CONTEXT* SpbContext
+);
 
 NTSTATUS
 SpbXferDataSynchronously(

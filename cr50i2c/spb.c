@@ -8,7 +8,7 @@ spb.c
 
 Abstract:
 
-Contains all I2C-specific functionality
+Contains all I2C/SPI-specific functionality
 
 Environment:
 
@@ -19,11 +19,12 @@ Revision History:
 --*/
 
 #include "driver.h"
+#include <spb.h>
 #include "spb.h"
 #include <reshub.h>
 
-static ULONG Cr50I2CDebugLevel = 100;
-static ULONG Cr50I2CDebugCatagories = DBG_INIT || DBG_PNP || DBG_IOCTL;
+static ULONG Cr50DebugLevel = 100;
+static ULONG Cr50DebugCatagories = DBG_INIT || DBG_PNP || DBG_IOCTL;
 
 NTSTATUS
 SpbDoWriteDataSynchronously(
@@ -36,12 +37,12 @@ SpbDoWriteDataSynchronously(
 Routine Description:
 
 This helper routine abstracts creating and sending an I/O
-request (I2C Write) to the Spb I/O target.
+request (I2C / SPI Write) to the Spb I/O target.
 
 Arguments:
 
 SpbContext - Pointer to the current device context
-Address    - The I2C register address to write to
+Address    - The I2C / SPI register address to write to
 Data       - A buffer to receive the data at at the above address
 Length     - The amount of data to be read from the above address
 
@@ -65,14 +66,14 @@ NTSTATUS Status indicating success or failure
 		status = WdfMemoryCreate(
 			WDF_NO_OBJECT_ATTRIBUTES,
 			NonPagedPool,
-			CR50I2C_POOL_TAG,
+			CR50_POOL_TAG,
 			length,
 			&memory,
 			(PVOID*)&buffer);
 
 		if (!NT_SUCCESS(status))
 		{
-			Cr50I2CPrint(
+			Cr50Print(
 				DEBUG_LEVEL_ERROR,
 				DBG_IOCTL,
 				"Error allocating memory for Spb write - %!STATUS!\n",
@@ -107,7 +108,7 @@ NTSTATUS Status indicating success or failure
 
 	if (!NT_SUCCESS(status))
 	{
-		Cr50I2CPrint(
+		Cr50Print(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
 			"Error writing to Spb - %!STATUS!\n",
@@ -126,6 +127,88 @@ exit:
 }
 
 NTSTATUS
+SpbLockController(
+	IN SPB_CONTEXT* SpbContext
+)
+/*++
+	Routine Description:
+	This routine sends a lock command to the SPB controller.
+	Arguments:
+	pDevice - a pointer to the device context
+	FxRequest - the framework request object
+	Return Value:
+	None
+--*/
+{
+	NTSTATUS status;
+
+	//
+	// Initialize the SPB request for lock and send.
+	//
+
+	status = WdfIoTargetSendIoctlSynchronously(
+		SpbContext->SpbIoTarget,
+		NULL,
+		IOCTL_SPB_LOCK_CONTROLLER,
+		NULL,
+		NULL,
+		NULL,
+		NULL);
+
+	if (!NT_SUCCESS(status))
+	{
+		Cr50Print(
+			DEBUG_LEVEL_ERROR,
+			DBG_IOCTL,
+			"Failed to send SPB request for "
+			"IOCTL_SPB_LOCK_CONTROLLER - %!STATUS!",
+			status);
+	}
+	return status;
+}
+
+NTSTATUS
+SpbUnlockController(
+	IN SPB_CONTEXT* SpbContext
+)
+/*++
+	Routine Description:
+	This routine sends a lock command to the SPB controller.
+	Arguments:
+	pDevice - a pointer to the device context
+	FxRequest - the framework request object
+	Return Value:
+	None
+--*/
+{
+	NTSTATUS status;
+
+	//
+	// Initialize the SPB request for lock and send.
+	//
+
+	status = WdfIoTargetSendIoctlSynchronously(
+		SpbContext->SpbIoTarget,
+		NULL,
+		IOCTL_SPB_UNLOCK_CONTROLLER,
+		NULL,
+		NULL,
+		NULL,
+		NULL);
+
+	if (!NT_SUCCESS(status))
+	{
+		Cr50Print(
+			DEBUG_LEVEL_ERROR,
+			DBG_IOCTL,
+			"Failed to send SPB request for "
+			"IOCTL_SPB_UNLOCK_CONTROLLER - %!STATUS!",
+			status);
+	}
+	return status;
+}
+
+NTSTATUS
 SpbWriteDataSynchronously(
 	IN SPB_CONTEXT* SpbContext,
 	IN PVOID Data,
@@ -136,13 +219,13 @@ SpbWriteDataSynchronously(
 Routine Description:
 
 This routine abstracts creating and sending an I/O
-request (I2C Write) to the Spb I/O target and utilizes
+request (I2C / SPI Write) to the Spb I/O target and utilizes
 a helper routine to do work inside of locked code.
 
 Arguments:
 
 SpbContext - Pointer to the current device context
-Address    - The I2C register address to write to
+Address    - The I2C / SPI register address to write to
 Data       - A buffer to receive the data at at the above address
 Length     - The amount of data to be read from the above address
 
@@ -177,10 +260,10 @@ SpbXferDataSynchronously(
 /*++
 Routine Description:
 This helper routine abstracts creating and sending an I/O
-request (I2C Read) to the Spb I/O target.
+request (I2C / SPI Read) to the Spb I/O target.
 Arguments:
 SpbContext - Pointer to the current device context
-Address    - The I2C register address to read from
+Address    - The I2C / SPI register address to read from
 Data       - A buffer to receive the data at at the above address
 Length     - The amount of data to be read from the above address
 Return Value:
@@ -209,7 +292,7 @@ NTSTATUS Status indicating success or failure
 
 	if (!NT_SUCCESS(status))
 	{
-		Cr50I2CPrint(
+		Cr50Print(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
 			"Error setting address pointer for Spb read - %!STATUS!\n",
@@ -222,14 +305,14 @@ NTSTATUS Status indicating success or failure
 		status = WdfMemoryCreate(
 			WDF_NO_OBJECT_ATTRIBUTES,
 			NonPagedPool,
-			CR50I2C_POOL_TAG,
+			CR50_POOL_TAG,
 			Length,
 			&memory,
 			(PVOID*)&buffer);
 
 		if (!NT_SUCCESS(status))
 		{
-			Cr50I2CPrint(
+			Cr50Print(
 				DEBUG_LEVEL_ERROR,
 				DBG_IOCTL,
 				"Error allocating memory for Spb read - %!STATUS!\n",
@@ -264,7 +347,7 @@ NTSTATUS Status indicating success or failure
 	if (!NT_SUCCESS(status) ||
 		bytesRead != Length)
 	{
-		Cr50I2CPrint(
+		Cr50Print(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
 			"Error reading from Spb - %!STATUS!\n",
@@ -297,10 +380,10 @@ SpbReadDataSynchronously(
 /*++
 Routine Description:
 This helper routine abstracts creating and sending an I/O
-request (I2C Read) to the Spb I/O target.
+request (I2C / SPI Read) to the Spb I/O target.
 Arguments:
 SpbContext - Pointer to the current device context
-Address    - The I2C register address to read from
+Address    - The I2C / SPI register address to read from
 Data       - A buffer to receive the data at at the above address
 Length     - The amount of data to be read from the above address
 Return Value:
@@ -324,14 +407,14 @@ NTSTATUS Status indicating success or failure
 		status = WdfMemoryCreate(
 			WDF_NO_OBJECT_ATTRIBUTES,
 			NonPagedPool,
-			CR50I2C_POOL_TAG,
+			CR50_POOL_TAG,
 			Length,
 			&memory,
 			(PVOID*)&buffer);
 
 		if (!NT_SUCCESS(status))
 		{
-			Cr50I2CPrint(
+			Cr50Print(
 				DEBUG_LEVEL_ERROR,
 				DBG_IOCTL,
 				"Error allocating memory for Spb read - %!STATUS!\n",
@@ -366,7 +449,7 @@ NTSTATUS Status indicating success or failure
 	if (!NT_SUCCESS(status) ||
 		bytesRead != Length)
 	{
-		Cr50I2CPrint(
+		Cr50Print(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
 			"Error reading from Spb - %!STATUS!\n",
@@ -476,7 +559,7 @@ NTSTATUS Status indicating success or failure
 
 	if (!NT_SUCCESS(status))
 	{
-		Cr50I2CPrint(
+		Cr50Print(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
 			"Error creating IoTarget object - %!STATUS!\n",
@@ -493,12 +576,12 @@ NTSTATUS Status indicating success or failure
 
 	status = RESOURCE_HUB_CREATE_PATH_FROM_ID(
 		&spbDeviceName,
-		SpbContext->I2cResHubId.LowPart,
-		SpbContext->I2cResHubId.HighPart);
+		SpbContext->SpbResHubId.LowPart,
+		SpbContext->SpbResHubId.HighPart);
 
 	if (!NT_SUCCESS(status))
 	{
-		Cr50I2CPrint(
+		Cr50Print(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
 			"Error creating Spb resource hub path string - %!STATUS!\n",
@@ -519,7 +602,7 @@ NTSTATUS Status indicating success or failure
 
 	if (!NT_SUCCESS(status))
 	{
-		Cr50I2CPrint(
+		Cr50Print(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
 			"Error opening Spb target for communication - %!STATUS!\n",
@@ -534,14 +617,14 @@ NTSTATUS Status indicating success or failure
 	status = WdfMemoryCreate(
 		WDF_NO_OBJECT_ATTRIBUTES,
 		NonPagedPool,
-		CR50I2C_POOL_TAG,
+		CR50_POOL_TAG,
 		DEFAULT_SPB_BUFFER_SIZE,
 		&SpbContext->WriteMemory,
 		NULL);
 
 	if (!NT_SUCCESS(status))
 	{
-		Cr50I2CPrint(
+		Cr50Print(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
 			"Error allocating default memory for Spb write - %!STATUS!\n",
@@ -552,14 +635,14 @@ NTSTATUS Status indicating success or failure
 	status = WdfMemoryCreate(
 		WDF_NO_OBJECT_ATTRIBUTES,
 		NonPagedPool,
-		CR50I2C_POOL_TAG,
+		CR50_POOL_TAG,
 		DEFAULT_SPB_BUFFER_SIZE,
 		&SpbContext->ReadMemory,
 		NULL);
 
 	if (!NT_SUCCESS(status))
 	{
-		Cr50I2CPrint(
+		Cr50Print(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
 			"Error allocating default memory for Spb read - %!STATUS!\n",
@@ -576,7 +659,7 @@ NTSTATUS Status indicating success or failure
 
 	if (!NT_SUCCESS(status))
 	{
-		Cr50I2CPrint(
+		Cr50Print(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
 			"Error creating Spb Waitlock - %!STATUS!\n",

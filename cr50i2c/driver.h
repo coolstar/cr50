@@ -1,5 +1,5 @@
-#if !defined(_CR50I2C_H_)
-#define _CR50I2C_H_
+#if !defined(_CR50_H_)
+#define _CR50_H_
 
 #pragma warning(disable:4200)  // suppress nameless struct/union warning
 #pragma warning(disable:4201)  // suppress nameless struct/union warning
@@ -16,7 +16,7 @@
 #pragma warning(disable:4214)  // suppress bit field types other than int warning
 #include <hidport.h>
 
-#include "cr50i2c.h"
+#include "cr50.h"
 #include "spb.h"
 
 //
@@ -25,9 +25,9 @@
 
 #define DRIVERNAME                 "cr50i2c.sys: "
 
-#define CR50I2C_POOL_TAG            (ULONG) 'CR50'
-#define CR50I2C_HARDWARE_IDS        L"CoolStar\\GOOG0005\0\0"
-#define CR50I2C_HARDWARE_IDS_LENGTH sizeof(CR50I2C_HARDWARE_IDS)
+#define CR50_POOL_TAG            (ULONG) 'CR50'
+#define CR50_HARDWARE_IDS        L"CoolStar\\GOOG0005\0\0"
+#define CR50_HARDWARE_IDS_LENGTH sizeof(CR50_HARDWARE_IDS)
 
 #define NTDEVICE_NAME_STRING       L"\\Device\\GOOG0005"
 #define SYMBOLIC_NAME_STRING       L"\\DosDevices\\GOOG0005"
@@ -35,7 +35,7 @@
 #define true 1
 #define false 0
 
-typedef struct _CR50I2C_CONTEXT
+typedef struct _CR50_CONTEXT
 {
 
 	//
@@ -54,9 +54,9 @@ typedef struct _CR50I2C_CONTEXT
 
 	char* buf;
 
-} CR50I2C_CONTEXT, *PCR50I2C_CONTEXT;
+} CR50_CONTEXT, *PCR50_CONTEXT;
 
-WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(CR50I2C_CONTEXT, GetDeviceContext)
+WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(CR50_CONTEXT, GetDeviceContext)
 
 //
 // Function definitions
@@ -64,13 +64,13 @@ WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(CR50I2C_CONTEXT, GetDeviceContext)
 
 DRIVER_INITIALIZE DriverEntry;
 
-EVT_WDF_DRIVER_UNLOAD Cr50I2CDriverUnload;
+EVT_WDF_DRIVER_UNLOAD Cr50DriverUnload;
 
-EVT_WDF_DRIVER_DEVICE_ADD Cr50I2CEvtDeviceAdd;
+EVT_WDF_DRIVER_DEVICE_ADD Cr50EvtDeviceAdd;
 
-EVT_WDFDEVICE_WDM_IRP_PREPROCESS Cr50I2CEvtWdmPreprocessMnQueryId;
+EVT_WDFDEVICE_WDM_IRP_PREPROCESS Cr50EvtWdmPreprocessMnQueryId;
 
-EVT_WDF_IO_QUEUE_IO_INTERNAL_DEVICE_CONTROL Cr50I2CEvtInternalDeviceControl;
+EVT_WDF_IO_QUEUE_IO_INTERNAL_DEVICE_CONTROL Cr50EvtInternalDeviceControl;
 
 //
 // Helper macros
@@ -85,16 +85,16 @@ EVT_WDF_IO_QUEUE_IO_INTERNAL_DEVICE_CONTROL Cr50I2CEvtInternalDeviceControl;
 #define DBG_IOCTL 4
 
 #if 0
-#define Cr50I2CPrint(dbglevel, dbgcatagory, fmt, ...) {          \
-    if (Cr50I2CDebugLevel >= dbglevel &&                         \
-        (Cr50I2CDebugCatagories && dbgcatagory))                 \
+#define Cr50Print(dbglevel, dbgcatagory, fmt, ...) {          \
+    if (Cr50DebugLevel >= dbglevel &&                         \
+        (Cr50DebugCatagories && dbgcatagory))                 \
 		    {                                                           \
         DbgPrint(DRIVERNAME);                                   \
         DbgPrint(fmt, __VA_ARGS__);                             \
 		    }                                                           \
 }
 #else
-#define Cr50I2CPrint(dbglevel, fmt, ...) {                       \
+#define Cr50Print(dbglevel, fmt, ...) {                       \
 }
 #endif
 #endif

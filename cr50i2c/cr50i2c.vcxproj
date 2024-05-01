@@ -143,12 +143,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="driver.h" />
-    <ClInclude Include="cr50i2c.h" />
+    <ClInclude Include="cr50.h" />
     <ClInclude Include="spb.h" />
     <ClInclude Include="trace.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="cr50i2c.c" />
+    <ClCompile Include="cr50.c" />
     <ClCompile Include="spb.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

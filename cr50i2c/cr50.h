@@ -1,5 +1,5 @@
-#ifndef __CR50_I2C_REGS_H__
-#define __CR50_I2C_REGS_H__
+#ifndef __CR50_REGS_H__
+#define __CR50_REGS_H__
 
 enum tis_access {
 	TPM_ACCESS_VALID = 0x80,
