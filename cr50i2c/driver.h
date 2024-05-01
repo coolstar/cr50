@@ -32,9 +32,6 @@
 #define NTDEVICE_NAME_STRING       L"\\Device\\GOOG0005"
 #define SYMBOLIC_NAME_STRING       L"\\DosDevices\\GOOG0005"
 
-#define true 1
-#define false 0
-
 typedef struct _CR50_CONTEXT
 {
 
