@@ -154,6 +154,9 @@
     <ClCompile Include="spb.c" />
     <ClCompile Include="spi.c" />
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="cr50.rc" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
